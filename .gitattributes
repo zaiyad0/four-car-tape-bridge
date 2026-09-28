@@ -1,0 +1,11 @@
+# 默认自动识别文本文件
+* text=auto
+
+# 脚本必须在 Linux（树莓派）上能跑，换行符强制 LF
+# 否则 CRLF 会导致 "bad interpreter: /bin/bash^M"
+*.sh   text eol=lf
+*.py   text eol=lf
+
+# PDF 是二进制，别碰
+*.pdf  binary
+*.png  binary
