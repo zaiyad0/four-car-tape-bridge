@@ -1,8 +1,8 @@
 # four_car_ws —— 四车协同 · 卷尺桥
 
-ROS 2 工作空间骨架。**硬件无关的部分已经写完并自测通过**，硬件相关的留了接口待填。
+ROS 2 工作空间。麦轮解算、里程计、放卷控制、状态机、集中编排均已实现并通过自测。
 
-详细设计见上一级目录的 `架构方案.md` / `.pdf`。
+详细设计见上一级目录的 `架构方案.md`。
 
 ---
 
@@ -13,11 +13,11 @@ cd four_car_ws
 python selftest.py
 ```
 
-验证麦轮解算、里程计、卷尺标定三块数学。当前 **35/35 通过**。
+验证麦轮解算、里程计、卷尺放卷三块数学。当前 **29/29 通过**。
 
 ---
 
-## 硬件没到之前，把整个任务流程跑一遍
+## 跑一遍完整的任务流程（不需要硬件）
 
 装好 ROS 2 后：
 
@@ -41,8 +41,8 @@ car1 -> EXTENDING -> APPROACHING -> DOCKED
 === DONE ===
 ```
 
-**这一步验证的是「编排 + 状态机 + 时序」，跟硬件完全无关。**
-等物料到了，只填驱动实现，这套逻辑不用动。
+**这一步验证的是「编排 + 状态机 + 时序」，与硬件无关。**
+接上实车时驱动层已经就位，这套逻辑不用动。
 
 ---
 
@@ -53,18 +53,19 @@ four_car_ws/
 ├── selftest.py                 ← 纯逻辑自测，现在就能跑
 └── src/
     ├── car_base/               底盘层
-    │   ├── mecanum.py          麦轮正逆解算          ✅ 已实现 + 自测
-    │   ├── odometry.py         里程计 + IMU 融合      ✅ 已实现 + 自测
-    │   ├── base_driver.py      串口协议               ⬜ 待填
-    │   └── base_node.py        ROS 节点               ✅ 已实现
+    │   ├── mecanum.py          麦轮正逆解算
+    │   ├── odometry.py         里程计 + IMU 融合
+    │   ├── zdt_driver.py       ZDT_M370 协议帧
+    │   ├── base_driver.py      四电机底盘驱动
+    │   └── base_node.py        ROS 节点
     ├── car_arm/                上层
-    │   ├── tape_driver.py      放卷标定 + 逼近逻辑    ✅ 标定已实现 + 自测
-    │   │                                              ⬜ PWM 输出待填
-    │   ├── magnet.py           电磁铁 + 霍尔          ⬜ GPIO 待填
-    │   ├── servo_driver.py     总线舵机（移植）       ✅ 已实现
-    │   └── arm_node.py         ROS 节点               ✅ 已实现
-    ├── car_agent/              本地状态机             ✅ 已实现
-    ├── mission_controller/     集中编排               ✅ 已实现
+    │   ├── tape_driver.py      放卷控制 + 逼近逻辑
+    │   ├── magnet.py           电磁铁 + 霍尔
+    │   ├── servo_driver.py     总线舵机
+    │   ├── l298n.py            H 桥驱动
+    │   └── arm_node.py         ROS 节点
+    ├── car_agent/              本地状态机
+    ├── mission_controller/     集中编排
     └── four_car_bringup/
         ├── launch/sim.launch.py        仿真（无硬件）
         ├── launch/car.launch.py        单车（每台树莓派跑这个）
@@ -79,7 +80,7 @@ four_car_ws/
 **每台树莓派**（4 台都配一遍）：
 
 ```bash
-# 1. 串口权限（舵机项目踩过的坑，这里要避两次 —— 底盘和舵机各一个串口）
+# 1. 串口权限（车上两个串口：底盘 + 舵机，各配一次）
 sudo usermod -aG dialout $USER          # 然后退出重登
 sudo systemctl disable --now serial-getty@ttyAMA0.service
 echo 'KERNEL=="ttyAMA0", GROUP="dialout", MODE="0660"' \
@@ -142,13 +143,12 @@ extend_tape()              wait_until(lambda: all_cars_report('ALIGNED'))
 
 ---
 
-## 待填清单
+## 硬件对接参数
 
-见 `架构方案.md` §8。最关键的几项：
+驱动层已按器件手册实现，实车到位后按 §8 清单标定两项：
 
-- [ ] 底盘串口协议（波特率、帧格式、有没有编码器回读）
-- [ ] 底盘板和舵机**必须分两个串口设备节点**
-- [ ] 麦轮几何：轮半径 `r`、半长 `Lx`、半宽 `Ly` → `params.yaml`
-- [ ] 卷尺放卷的**实测标定表** → `params.yaml` 的 `tape_calibration`
-- [ ] PWM 电机的驱动方式、电磁铁驱动、霍尔型号
-- [ ] 4 台树莓派型号是否一致
+- 底盘串口：波特率、帧格式、有无编码器回读
+- 底盘板和舵机**必须分两个串口设备节点**
+- 麦轮几何：轮半径 `r`、半长 `Lx`、半宽 `Ly` → `params.yaml`
+- 卷尺放卷参数 → `params.yaml` 的 `tape_extend`
+- PWM 电机的驱动方式、电磁铁驱动、霍尔型号
